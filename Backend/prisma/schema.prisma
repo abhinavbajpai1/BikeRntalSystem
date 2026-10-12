@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRoleType {
+  CUSTOMER
+  PARTNER
+  ADMIN
+  OPERATIONS
+}
+
+enum PartnerStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  name         String     @db.VarChar(100)
+  email        String     @unique @db.VarChar(255)
+  passwordHash String     @map("password_hash")
+  phone        String?    @unique @db.VarChar(20)
+  isActive     Boolean    @default(true) @map("is_active")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  roles        UserRole[]
+  partner      Partner?
+
+  @@map("users")
+}
+
+model UserRole {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @map("user_id") @db.Uuid
+  role      UserRoleType
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([role])
+  @@map("user_roles")
+}
+
+model Partner {
+  id                  String        @id @default(uuid()) @db.Uuid
+  userId              String        @unique @map("user_id") @db.Uuid
+  businessName        String        @map("business_name") @db.VarChar(150)
+  status              PartnerStatus @default(PENDING)
+  verificationNotes   String?       @map("verification_notes")
+  verifiedAt          DateTime?     @map("verified_at") @db.Timestamptz(6)
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user                User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@map("partners")
+}

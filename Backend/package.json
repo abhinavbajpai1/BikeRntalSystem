@@ -4,8 +4,23 @@
   "description": "A vehicle rental system",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "author": "Abhinav",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.10.0",
+    "@prisma/client": "^7.10.0",
+    "argon2": "^0.45.1",
+    "axios": "^1.20.0",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "mongoose": "^9.11.1",
+    "pg": "^8.23.1",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "prisma": "^7.10.0"
+  }
 }
