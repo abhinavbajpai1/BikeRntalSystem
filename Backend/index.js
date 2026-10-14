@@ -4,13 +4,15 @@ const express = require("express");
 const { Pool } = require("pg");
 const prisma = require("./src/lib/prisma");
 const authRoutes = require("./src/routes/auth.routes");
+const session = require("express-session");
+const pgSession = require("connect-pg-simple")(session);
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
 
 // Parse incoming JSON requests.
 app.use(express.json());
-app.use("/api/auth", authRoutes);
+
 
 // PostgreSQL connection pool.
 const pool = new Pool({
@@ -21,11 +23,52 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 });
 
+// Ensure SESSION_SECRET is set in the environment variables.
+
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is missing from backend/.env");
+}
+
+app.use(
+  session({
+    name: "vroom.sid",
+
+    store: new pgSession({
+      pool,
+      tableName: "user_sessions",
+      createTableIfMissing: true,
+    }),
+
+    secret: process.env.SESSION_SECRET,
+
+    resave: false,
+    saveUninitialized: false,
+
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+    },
+  }),
+);
+
 // Log unexpected database connection errors.
 pool.on("error", (error) => {
   console.error("Unexpected PostgreSQL pool error:", error.message);
 });
+app.use("/api/auth", authRoutes);
 
+const requireAuth = require("./src/middleware/requireAuth");
+const requireRole = require("./src/middleware/requireRole");
+
+app.get("/api/test/admin", requireAuth, requireRole("ADMIN"), (req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Admin access granted",
+    user: req.user,
+  });
+});
 // API health check.
 app.get("/api/health", (req, res) => {
   res.status(200).json({

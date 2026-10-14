@@ -1,9 +1,9 @@
 const argon2 = require("argon2");
 const prisma = require("../lib/prisma");
 const { registerSchema } = require("../validators/auth.validator");
-const {loginSchema} = require("../validators/login.validator");
+const { loginSchema } = require("../validators/login.validator");
 
-// register a new user controller function
+// Register a new user
 async function register(req, res) {
   try {
     // 1. Validate request data
@@ -101,8 +101,7 @@ async function register(req, res) {
   }
 }
 
-
-// Login controller function
+// Login
 async function login(req, res) {
   try {
     // 1. Validate request data
@@ -140,10 +139,7 @@ async function login(req, res) {
     }
 
     // 4. Verify the password against its stored hash
-    const passwordMatches = await argon2.verify(
-      user.passwordHash,
-      password
-    );
+    const passwordMatches = await argon2.verify(user.passwordHash, password);
 
     if (!passwordMatches) {
       return res.status(401).json({
@@ -151,16 +147,31 @@ async function login(req, res) {
       });
     }
 
-    // 5. Return safe user details
-    return res.status(200).json({
-      message: "Credentials verified successfully",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        roles: user.roles.map((item) => item.role),
-      },
+    // 5. Store the user in the session, then respond once it is saved.
+    //    This callback is the ONLY place the response is sent.
+    req.session.userId = user.id;
+
+    return req.session.save((err) => {
+      if (err) {
+        console.error("Session save error:", err);
+
+        return res.status(500).json({
+          success: false,
+          message: "Unable to establish a login session",
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Login successful",
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          roles: user.roles.map((item) => item.role),
+        },
+      });
     });
   } catch (error) {
     console.error("Login error details:", error);
@@ -171,4 +182,88 @@ async function login(req, res) {
   }
 }
 
-module.exports = { register,login };
+// Current-user endpoint
+async function getCurrentUser(req, res) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: req.session.userId,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        isActive: true,
+        roles: {
+          select: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!user || !user.isActive) {
+      return req.session.destroy(() => {
+        res.clearCookie("vroom.sid");
+
+        return res.status(401).json({
+          success: false,
+          message: "Session is no longer valid",
+        });
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        roles: user.roles.map((item) => item.role),
+      },
+    });
+  } catch (error) {
+    console.error("Get current user error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to retrieve current user",
+    });
+  }
+}
+
+// Logout
+function logout(req, res) {
+  if (!req.session) {
+    return res.status(200).json({
+      success: true,
+      message: "Already logged out",
+    });
+  }
+
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Logout session error:", err);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to log out",
+      });
+    }
+
+    res.clearCookie("vroom.sid", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Logout successful",
+    });
+  });
+}
+
+module.exports = { register, login, getCurrentUser, logout };
