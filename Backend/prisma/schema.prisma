@@ -1,6 +1,7 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
 }
@@ -19,18 +20,45 @@ enum PartnerStatus {
   SUSPENDED
 }
 
-model User {
-  id           String     @id @default(uuid()) @db.Uuid
-  name         String     @db.VarChar(100)
-  email        String     @unique @db.VarChar(255)
-  passwordHash String     @map("password_hash")
-  phone        String?    @unique @db.VarChar(20)
-  isActive     Boolean    @default(true) @map("is_active")
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+enum VehicleOwnerType {
+  COMPANY
+  PARTNER
+}
 
-  roles        UserRole[]
-  partner      Partner?
+enum VehicleStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  MAINTENANCE
+  RETIRED
+}
+
+enum VehicleFuelType {
+  PETROL
+  DIESEL
+  ELECTRIC
+  HYBRID
+  CNG
+  LPG
+}
+
+enum VehicleTransmission {
+  MANUAL
+  AUTOMATIC
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @map("password_hash")
+  phone        String?  @unique @db.VarChar(20)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  roles   UserRole[]
+  partner Partner?
 
   @@map("users")
 }
@@ -41,7 +69,7 @@ model UserRole {
   role      UserRoleType
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, role])
   @@index([role])
@@ -49,17 +77,45 @@ model UserRole {
 }
 
 model Partner {
-  id                  String        @id @default(uuid()) @db.Uuid
-  userId              String        @unique @map("user_id") @db.Uuid
-  businessName        String        @map("business_name") @db.VarChar(150)
-  status              PartnerStatus @default(PENDING)
-  verificationNotes   String?       @map("verification_notes")
-  verifiedAt          DateTime?     @map("verified_at") @db.Timestamptz(6)
-  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                String        @id @default(uuid()) @db.Uuid
+  userId            String        @unique @map("user_id") @db.Uuid
+  businessName      String        @map("business_name") @db.VarChar(150)
+  status            PartnerStatus @default(PENDING)
+  verificationNotes String?       @map("verification_notes")
+  verifiedAt        DateTime?     @map("verified_at") @db.Timestamptz(6)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user                User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vehicles Vehicle[]
 
   @@index([status])
   @@map("partners")
+}
+
+model Vehicle {
+  id        String           @id @default(uuid()) @db.Uuid
+  ownerType VehicleOwnerType @map("owner_type")
+  partnerId String?          @map("partner_id") @db.Uuid
+
+  registrationNumber String              @unique @map("registration_number") @db.VarChar(20)
+  make               String              @db.VarChar(100)
+  model              String              @db.VarChar(100)
+  manufacturingYear  Int                 @map("manufacturing_year")
+  fuelType           VehicleFuelType     @map("fuel_type")
+  transmission       VehicleTransmission
+  seatingCapacity    Int                 @map("seating_capacity")
+
+  status VehicleStatus @default(DRAFT)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  partner Partner? @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  @@index([ownerType])
+  @@index([partnerId])
+  @@index([status])
+  @@index([make, model])
+  @@map("vehicles")
 }
