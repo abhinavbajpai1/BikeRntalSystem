@@ -6,6 +6,7 @@ const prisma = require("./src/lib/prisma");
 const authRoutes = require("./src/routes/auth.routes");
 const session = require("express-session");
 const pgSession = require("connect-pg-simple")(session);
+const vehicleRoutes = require("./src/routes/vehicle.routes");
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
@@ -58,6 +59,7 @@ pool.on("error", (error) => {
   console.error("Unexpected PostgreSQL pool error:", error.message);
 });
 app.use("/api/auth", authRoutes);
+app.use("/api/vehicles", vehicleRoutes);
 
 const requireAuth = require("./src/middleware/requireAuth");
 const requireRole = require("./src/middleware/requireRole");

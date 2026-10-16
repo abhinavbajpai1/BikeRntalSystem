@@ -63,6 +63,14 @@ model User {
   @@map("users")
 }
 
+model user_sessions {
+  sid    String   @id @db.VarChar
+  sess   Json     @db.Json
+  expire DateTime @db.Timestamp(6)
+
+  @@index([expire], map: "IDX_user_sessions_expire")
+}
+
 model UserRole {
   id        String       @id @default(uuid()) @db.Uuid
   userId    String       @map("user_id") @db.Uuid
